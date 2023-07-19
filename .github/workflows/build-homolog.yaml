@@ -69,7 +69,7 @@ jobs:
             lista_branches=`echo -e "$lista_branches\n${{ matrix.branch_name }}"`
           fi
           nova_lista=$lista_branches
-          echo $lista_branches | while read -r branch; do
+          while read -r branch; do
             git checkout $branch
             set +e
             git log --pretty=format:"%h" develop | grep `git log --pretty=format:"%h" -1 $branch` &> /dev/null
