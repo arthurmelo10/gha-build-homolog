@@ -75,7 +75,9 @@ jobs:
             if [ $? -eq 0 ]; then
               set -e
               lista_branches="${lista_branches//$branch/}"
+              echo "Branch $branch removida de homolog"
             else
+              echo "Branch $branch mantida em homolog"
               set -e
               git rebase develop
               git checkout homolog
