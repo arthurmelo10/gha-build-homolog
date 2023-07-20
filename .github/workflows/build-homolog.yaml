@@ -1,12 +1,12 @@
 name: Build homolog
-
+​
 on:
   issues:
     types: opened
-
+​
 concurrency:
   group: build-homolog
-
+​
 jobs:
   setup:
     if: contains(github.event.issue.labels.*.name, 'build-homolog')
@@ -21,12 +21,12 @@ jobs:
           issue-number: ${{ github.event.issue.number }}
           body: |
             Action link [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
-
+​
       - name: Checkout do repositório
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-
+​
       - name: Obtém a branch a ser mergeada
         id: branches
         run: |
@@ -35,55 +35,57 @@ jobs:
           echo "values<<EOF" >> $GITHUB_OUTPUT
           echo "$values" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-
+​
   merge-branch:
     if: contains(github.event.issue.labels.*.name, 'build-homolog')
     name: Build Homolog
     needs: [ setup ]
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        branch_name: ${{ fromJSON( needs.setup.outputs.branches ) }}
-      fail-fast: true
-      max-parallel: 1
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v2
         with:
           fetch-depth: 0
-
+​
       - name: Atualizar branch homolog
         run: |
           git config --global user.email "robot@github.com"
           git config --global user.name "Homolog Robot"
           git fetch --all
           git checkout homolog
-          lista_branches=''
+          lista_branches=''          
           if [[ -f homolog-branches ]]; then
             lista_branches=$(cat homolog-branches)
-          fi;
+          fi;          
+          lista_branches=`echo -e "$lista_branches\n${{ needs.setup.outputs.branches }}" | tr ' ' '\n' | sort -u`                              
           git checkout develop
           git branch -D homolog
           git checkout -b homolog develop
-          if ! echo "$lista_branches" | grep -qF "${{ matrix.branch_name }}"; then
-            lista_branches=`echo -e "$lista_branches\n${{ matrix.branch_name }}"`
-          fi
           nova_lista=$lista_branches
+          echo "DEBUG: Entrando no loop"
           while read -r branch; do
-            git checkout $branch
             set +e
-            git log --pretty=format:"%h" develop | grep `git log --pretty=format:"%h" -1 $branch` &> /dev/null
-            if [ $? -eq 0 ]; then
-              set -e
-              nova_lista="${nova_lista//$branch/}"
-              echo "Branch $branch removida de homolog"
-              echo "Lista atualizada: $nova_lista"
-            else
-              echo "Branch $branch mantida em homolog"
+            echo "DEBUG: Verifica se $branch existe"
+            git ls-remote --exit-code --heads origin $branch &> /dev/null
+            branch_exists=$?
+            echo "DEBUG: Verificou se $branch $branch_exists"
+            branch_merged=0
+            if [ $branch_exists -eq 0 ]; then
+              git checkout $branch
+              git log --pretty=format:"%h" develop | grep `git log --pretty=format:"%h" -1 $branch` &> /dev/null
+              branch_merged=$?
+            fi
+            if [ $branch_exists -eq 0 ] && [ $branch_merged -ne 0 ]; then
+              echo "Irá mergear branch: $branch"
               set -e
               git rebase develop
               git checkout homolog
               git merge $branch --no-edit
+              echo "Mergeou branch: $branch"
+            else
+              set -e
+              # remove branch from list
+              nova_lista="${nova_lista//$branch/}"
             fi
           done <<< "$lista_branches"
           echo "Preparando homolog"
@@ -93,3 +95,33 @@ jobs:
           git add .
           git commit -m "Atualizando homolog com $nova_lista"
           git push --force origin homolog
+​
+  close-issue-with-success:
+    if: success() && !cancelled()
+    name: Close Issue
+    needs: [ merge-branch ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close issue with success
+        uses: peter-evans/close-issue@v2
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment: |
+            ## Finish :rocket:
+            Branches updated: ${{ steps.branches.outputs.values }}
+            Automation completed.
+​
+  close-issue-with-error:
+      if: failure() && !cancelled()
+      name: Close Issue
+      needs: [ merge-branch ]
+      runs-on: ubuntu-latest
+      steps:
+        - name: Close issue with failure
+          uses: peter-evans/close-issue@v2
+          with:
+            issue-number: ${{ github.event.issue.number }}
+            comment: |
+              ## Error :sob:
+              Automation failed.
+              You can view the error accessing the [action log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
