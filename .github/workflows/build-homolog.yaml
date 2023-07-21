@@ -125,3 +125,9 @@ jobs:
             ## Error :sob:
             Automation failed.
             You can view the error accessing the [action log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+
+      - name: Report
+        run: gh run view ${{ github.run_id }} --log | grep error
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE: ${{ github.event.issue.html_url }}
