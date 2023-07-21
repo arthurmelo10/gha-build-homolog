@@ -131,6 +131,9 @@ jobs:
     needs: [ merge-branch ]
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v2
+
       - name: Close issue with failure
         uses: peter-evans/close-issue@v2
         with:
