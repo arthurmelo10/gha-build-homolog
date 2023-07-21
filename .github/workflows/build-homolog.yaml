@@ -41,6 +41,9 @@ jobs:
     name: Build Homolog
     needs: [ setup ]
     runs-on: ubuntu-latest
+    outputs:
+      error_message: ${{ steps.update-homolog.outputs.error }}
+      wellcome_message: ${{ steps.update-homolog.outputs.welcome }}
     steps:
       - name: Checkout do repositório
         uses: actions/checkout@v2
@@ -54,7 +57,9 @@ jobs:
           git fetch --all
 
       - name: Atualizar Branch de Homolog
+        id: update-homolog
         run: |
+          echo "welcome='Seja bem vindo'" >> $GITHUB_OUTPUT
           git checkout homolog
           lista_branches=''
           if [[ -f homolog-branches ]]; then
@@ -65,7 +70,7 @@ jobs:
             set +e
             git ls-remote --exit-code --heads origin $branch &> /dev/null
             if [[ "$?" != "0" ]]; then
-              echo "Branch não existe: $branch"
+              echo "error=Branch não existe: '$branch'" >> $GITHUB_OUTPUT
               set -e
               exit 1
             fi
@@ -125,6 +130,16 @@ jobs:
             Branches updated: ${{ steps.branches.outputs.values }}
             Automation completed.
 
+  simple-error-report:
+    if: failure() && !cancelled()
+    name: Close Issue
+    needs: [ merge-branch ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show report
+        run: |
+          echo "${{ needs.merge-branch.outputs.error_message }}"
+
   close-issue-with-error:
     if: failure() && !cancelled()
     name: Close Issue
@@ -139,12 +154,9 @@ jobs:
         with:
           issue-number: ${{ github.event.issue.number }}
           comment: |
-            ## Error :sob:
-            Automation failed.
-            You can view the error accessing the [action log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+            ## Automation failed. :sob:
 
-      - name: Report
-        run: gh run view ${{ github.run_id }} --log | grep error
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ISSUE: ${{ github.event.issue.html_url }}
+            Errors ocurred during automation:
+            - ${{ needs.merge-branch.outputs.error_message }}
+
+            You can view all logs acessing [action log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
