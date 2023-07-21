@@ -47,16 +47,30 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Atualizar branch homolog
+      - name: Configuração Git
         run: |
           git config --global user.email "robot@github.com"
           git config --global user.name "Homolog Robot"
           git fetch --all
+
+      - name: Atualizar Branch de Homolog
+        run: |
           git checkout homolog
           lista_branches=''
           if [[ -f homolog-branches ]]; then
             lista_branches=$(cat homolog-branches)
-          fi;          
+          fi;
+
+          while read -r branch; do
+            set +e
+            git ls-remote --exit-code --heads origin $branch &> /dev/null
+            if [[ "$?" != "0" ]]; then
+              echo "Branch não existe: $branch"
+              set -e
+              exit 1
+            fi
+          done <<< "${{ needs.setup.outputs.branches }}"
+
           lista_branches=`echo -e "$lista_branches\n${{ needs.setup.outputs.branches }}" | tr ' ' '\n' | sort -u`                              
           git checkout develop
           git branch -D homolog
@@ -70,21 +84,21 @@ jobs:
             branch_exists=$?
             echo "DEBUG: Verificou se $branch $branch_exists"
             branch_merged=0
-            if [ $branch_exists -eq 0 ]; then
+            if [[ "$branch_exists" == "0" ]]; then
               git checkout $branch
               git log --pretty=format:"%h" develop | grep `git log --pretty=format:"%h" -1 $branch` &> /dev/null
               branch_merged=$?
-            else
-              echo "DEBUG: $branch não existe"
-              exit 1
             fi
-            if [ $branch_exists -eq 0 ] && [ $branch_merged -ne 0 ]; then
+            if [[ "$branch_exists" == "0" ]] && [[ "$branch_merged" != "0" ]]; then
               set -e
               git rebase develop
               git checkout homolog
               git merge $branch --no-edit
             else
               set -e
+              if [[ "$branch_exists" != "0" ]]; then
+                echo "DEBUG: Branch $branch não existe!!"
+              fi
               nova_lista="${nova_lista//$branch/}"
             fi
           done <<< "$lista_branches"
