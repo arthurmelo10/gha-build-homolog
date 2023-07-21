@@ -32,7 +32,6 @@ def getBranches(currentList, mergeList):
             branches.remove(branch)
 
     # Remove deleteBranches from branches
-    branches =
     currentList = [branch.strip() for branch in currentList.splitlines()]
     branches = [branch for branch in currentList if branch not in deleteBranches]
     print(branches)
@@ -42,12 +41,12 @@ def getBranches(currentList, mergeList):
     return [branch.strip() for branch in branches]
 
 try:
-    command = sys.argv[1]
-    currentList = sys.argv[2]
-    mergeList = sys.argv[3]
+    command = sys.argv[0]
+    currentList = sys.argv[1]
+    mergeList = sys.argv[2]
 
     if command == 'parse-branches':
-        print('\n'.join(parseBranches(mergeList)))
+        print('\n'.join(parseBranches(currentList)))
         exit()
 
     if command == 'get-branches':
