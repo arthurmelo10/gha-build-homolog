@@ -1,0 +1,24 @@
+name: Manual
+
+on:
+  workflow_dispatch:  # Permite a ativação manual do workflow
+
+concurrency:
+  group: verify-concurrence
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Gerar erro
+        run: |
+          echo "Deu erro aqui. Não sei o motivo."
+          exit 1
+
+      - name: Report
+        if: failure()
+        run: gh run view ${{ github.run_id }} --log | grep error
+        env:
+            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            ISSUE: ${{ github.event.issue.html_url }}
