@@ -1,11 +1,11 @@
 name: Deploy to production
 
-on:
-  issues:
-    types: opened
-
 # on:
-#   workflow_dispatch:  # Permite a ativação manual do workflow
+#   issues:
+#     types: opened
+
+on:
+  workflow_dispatch:  # Permite a ativação manual do workflow
 
 env:
   REGISTRY: ghcr.io
@@ -16,14 +16,14 @@ concurrency:
 
 jobs:
   setup:
-    if: contains(github.event.issue.labels.*.name, 'deploy-production')
+    # if: contains(github.event.issue.labels.*.name, 'deploy-production')
     name: Setup
     runs-on: ubuntu-latest
     steps:
       - name: Get action link
         uses: peter-evans/create-or-update-comment@v2
-        with:
-          issue-number: ${{ github.event.issue.number }}
+        # with:
+        #   # issue-number: ${{ github.event.issue.number }}
           body: |
             Action link [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
