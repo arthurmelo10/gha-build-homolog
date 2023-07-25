@@ -1,11 +1,11 @@
 name: Deploy Production
 
-# on:
-#   issues:
-#     types: opened
-
 on:
-  workflow_dispatch:  # Permite a ativação manual do workflow
+  issues:
+    types: opened
+
+# on:
+#   workflow_dispatch:  # Permite a ativação manual do workflow
 
 env:
   REGISTRY: ghcr.io
@@ -15,18 +15,18 @@ concurrency:
   group: deploy-production
 
 jobs:
-  # setup:
-  #   # if: contains(github.event.issue.labels.*.name, 'deploy-production')
-  #   name: Setup
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Get action link
-  #       uses: peter-evans/create-or-update-comment@v2
-  #       # with:
-  #       #   # issue-number: ${{ github.event.issue.number }}
+  setup:
+    if: contains(github.event.issue.labels.*.name, 'deploy-production')
+    name: Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get action link
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ github.event.issue.number }}
 
-  #         body: |
-  #           Action link [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          body: |
+            Action link [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
   push_to_registry:
     name: Push Docker image to Docker Hub
@@ -82,13 +82,13 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
-      # - name: Deploy to production
-      #   id: deploy
-      #   run: |
-      #      result=`curl -XGET https://api.render.com/deploy/srv-civc57tgkuvoig9m1l4g?key=ohQT4HLHbfY`
-      #      echo "result<<EOF" >> $GITHUB_OUTPUT
-      #      echo "$result" >> $GITHUB_OUTPUT
-      #      echo "EOF" >> $GITHUB_OUTPUT
+      - name: Deploy to production
+        id: deploy
+        run: |
+           result=`curl -XGET https://api.render.com/deploy/srv-cj02jas07spjntio35vg?key=WdW6-qwq-PQ`
+           echo "result<<EOF" >> $GITHUB_OUTPUT
+           echo "$result" >> $GITHUB_OUTPUT
+           echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Close issue with failure
         uses: peter-evans/close-issue@v2
