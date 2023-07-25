@@ -1,0 +1,124 @@
+name: Deploy to production
+
+on:
+  issues:
+    types: opened
+
+# on:
+#   workflow_dispatch:  # Permite a ativação manual do workflow
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: deploy-production
+
+jobs:
+  setup:
+    if: contains(github.event.issue.labels.*.name, 'deploy-production')
+    name: Setup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get action link
+        uses: peter-evans/create-or-update-comment@v2
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          body: |
+            Action link [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+  push_to_registry:
+    needs: [ setup ]
+    name: Push Docker image to Docker Hub
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    outputs:
+      history: ${{ steps.deploy.outputs.history }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Take a foto
+        run: |
+          git fetch --all
+          git config --global user.email "robot@github.com"
+          git config --global user.name "Roboto"
+          git checkout deploy
+          version=`cat version.txt`
+          git checkout main
+          git branch -D deploy
+          git checkout -b deploy main
+          git log --date="short" --pretty="- %h %x09%ad%x09%s" $version..HEAD > history.txt
+          git log --date="short" --pretty="%h" -1 > version.txt
+          git add .
+          git commit -m "Deploy to production"
+          git push --force origin deploy
+          history=`cat history.txt`
+          echo "history<<EOF" >> $GITHUB_OUTPUT
+          echo "$history" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@9ec57ed1fcdbf14dcef7dfbe97b2010124a938b7
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+      # - name: Deploy to production
+      #   id: deploy
+      #   run: |
+      #      result=`curl -XGET https://api.render.com/deploy/srv-civc57tgkuvoig9m1l4g?key=ohQT4HLHbfY`
+      #      echo "result<<EOF" >> $GITHUB_OUTPUT
+      #      echo "$result" >> $GITHUB_OUTPUT
+      #      echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Close issue with failure
+        uses: peter-evans/close-issue@v2
+        if: failure() && !cancelled()
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment: |
+            ## Deploy to production failed. :sob:
+
+            Errors ocurred during automation:
+            - ${{ steps.deploy.outputs.result }}
+
+            You can view all logs acessing [action log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+
+  close-issue-with-success:
+    if: success() && !cancelled()
+    name: Close Issue
+    needs: [ push_to_registry ]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close issue with success
+        uses: peter-evans/close-issue@v2
+        with:
+          issue-number: ${{ github.event.issue.number }}
+          comment: |
+            ## Deploy to production successfully :rocket:
+
+            History:
+            ${{ steps.push_to_registry.outputs.history }}
+
+            Your awesome application now is live and public.
+
+            Enjoy!
