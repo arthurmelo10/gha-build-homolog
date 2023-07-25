@@ -1,4 +1,4 @@
-name: Deploy to production
+name: Deploy Production
 
 # on:
 #   issues:
@@ -15,21 +15,20 @@ concurrency:
   group: deploy-production
 
 jobs:
-  setup:
-    # if: contains(github.event.issue.labels.*.name, 'deploy-production')
-    name: Setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get action link
-        uses: peter-evans/create-or-update-comment@v2
-        # with:
-        #   # issue-number: ${{ github.event.issue.number }}
-        
-          body: |
-            Action link [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+  # setup:
+  #   # if: contains(github.event.issue.labels.*.name, 'deploy-production')
+  #   name: Setup
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Get action link
+  #       uses: peter-evans/create-or-update-comment@v2
+  #       # with:
+  #       #   # issue-number: ${{ github.event.issue.number }}
+
+  #         body: |
+  #           Action link [${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
   push_to_registry:
-    needs: [ setup ]
     name: Push Docker image to Docker Hub
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
